@@ -1,0 +1,6 @@
+{
+  "name": "StreamSync Music",
+  "description": "YouTube Music style streaming app with offline playback, real-time lyrics sync, built-in equalizer, track uploads, and social community features.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
