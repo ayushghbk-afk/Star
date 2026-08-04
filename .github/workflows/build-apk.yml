@@ -26,20 +26,25 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'gradle'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.11.1'
 
-      - name: Build Debug APK
-        run: gradle assembleDebug --stacktrace
+      - name: Generate Wrapper & Build Debug APK
+        run: |
+          gradle wrapper
+          ./gradlew assembleDebug --stacktrace
 
       - name: Prepare Release Artifact
         run: |
           mkdir -p output
-          cp app/build/outputs/apk/debug/app-debug.apk output/StreamSync-v1.0.0-debug.apk || cp app/build/outputs/apk/debug/*.apk output/StreamSync-v1.0.0-debug.apk
+          if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp app/build/outputs/apk/debug/app-debug.apk output/StreamSync-v1.0.0-debug.apk
+          else
+            cp app/build/outputs/apk/debug/*.apk output/StreamSync-v1.0.0-debug.apk
+          fi
 
       - name: Upload APK Build Artifact
         uses: actions/upload-artifact@v4
@@ -51,8 +56,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name == 'main' && 'latest' || github.ref_name == 'master' && 'latest' || github.ref_name }}
-          name: StreamSync Release (${{ github.ref_name }})
+          tag_name: v1.0.0
+          name: StreamSync Release (v1.0.0)
           body: |
             Automated APK Build for StreamSync Application.
             
