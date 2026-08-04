@@ -50,9 +50,18 @@ abstract class AppDatabase : RoomDatabase() {
         private class DatabaseCallback : RoomDatabase.Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
-                INSTANCE?.let { database ->
-                    CoroutineScope(Dispatchers.IO).launch {
-                        populateInitialData(database)
+                CoroutineScope(Dispatchers.IO).launch {
+                    INSTANCE?.let { populateInitialData(it) }
+                }
+            }
+
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                super.onOpen(db)
+                CoroutineScope(Dispatchers.IO).launch {
+                    INSTANCE?.let { database ->
+                        if (database.channelDao().getChannelById(1) == null) {
+                            populateInitialData(database)
+                        }
                     }
                 }
             }
