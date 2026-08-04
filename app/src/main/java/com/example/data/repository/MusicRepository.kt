@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import com.example.data.auth.AuthManager
 import com.example.data.db.*
 import com.example.data.firestore.FirestoreSyncManager
 import kotlinx.coroutines.delay
@@ -8,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 class MusicRepository(private val database: AppDatabase) {
 
     private val firestoreSync = FirestoreSyncManager()
+    val authManager = AuthManager()
 
     val allTracks: Flow<List<TrackEntity>> = database.trackDao().getAllTracks()
     val offlineTracks: Flow<List<TrackEntity>> = database.trackDao().getOfflineTracks()
@@ -16,6 +18,28 @@ class MusicRepository(private val database: AppDatabase) {
     val playlists: Flow<List<PlaylistEntity>> = database.playlistDao().getAllPlaylists()
     val communityPosts: Flow<List<CommunityPostEntity>> = database.communityDao().getAllPosts()
     val userPreferences: Flow<UserPreferencesEntity?> = database.communityDao().getUserPreferences()
+    val allChannels: Flow<List<ChannelEntity>> = database.channelDao().getAllChannels()
+    val subscribedChannels: Flow<List<ChannelEntity>> = database.channelDao().getSubscribedChannels()
+
+    suspend fun getChannelById(id: Long): ChannelEntity? {
+        return database.channelDao().getChannelById(id)
+    }
+
+    suspend fun toggleSubscribeChannel(channelId: Long, currentIsSubscribed: Boolean) {
+        val newSubState = !currentIsSubscribed
+        val delta = if (newSubState) 1 else -1
+        database.channelDao().updateSubscription(channelId, newSubState, delta)
+        database.channelDao().getChannelById(channelId)?.let { updated ->
+            firestoreSync.syncChannel(updated)
+        }
+    }
+
+    suspend fun saveChannel(channel: ChannelEntity): Long {
+        val id = database.channelDao().insertChannel(channel)
+        val saved = channel.copy(id = id)
+        firestoreSync.syncChannel(saved)
+        return id
+    }
 
     fun searchTracks(query: String): Flow<List<TrackEntity>> {
         return database.trackDao().searchTracks(query)

@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +25,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.data.auth.UserAccount
+import com.example.data.db.ChannelEntity
 import com.example.data.db.PlaylistEntity
 import com.example.data.db.TrackEntity
 import com.example.ui.components.TrackItem
@@ -34,15 +37,19 @@ import com.example.ui.theme.YtRed
 @Composable
 fun HomeScreen(
     tracks: List<TrackEntity>,
+    channels: List<ChannelEntity> = emptyList(),
     currentTrackId: Long?,
     searchQuery: String,
     playlists: List<PlaylistEntity>,
+    currentUser: UserAccount? = null,
     onSearchQueryChange: (String) -> Unit,
     onTrackSelect: (TrackEntity) -> Unit,
     onLikeToggle: (TrackEntity) -> Unit,
     onOfflineToggle: (TrackEntity) -> Unit,
     onAddToPlaylist: (playlistId: Long, trackId: Long) -> Unit,
-    onOpenUpload: () -> Unit
+    onOpenUpload: () -> Unit,
+    onChannelClick: (ChannelEntity) -> Unit = {},
+    onAvatarClick: () -> Unit = {}
 ) {
     var selectedFilter by remember { mutableStateOf("All") }
     val filters = listOf("All", "Offline Downloaded", "Community Uploads", "Synthwave", "Chillout")
@@ -120,16 +127,45 @@ fun HomeScreen(
                         }
                     }
 
-                    // Quick Upload Button
-                    IconButton(
-                        onClick = onOpenUpload,
-                        modifier = Modifier.testTag("home_upload_btn")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CloudUpload,
-                            contentDescription = "Upload Track",
-                            tint = YtRed
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Quick Upload Button
+                        IconButton(
+                            onClick = onOpenUpload,
+                            modifier = Modifier.testTag("home_upload_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudUpload,
+                                contentDescription = "Upload Track",
+                                tint = YtRed
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        // Profile / Account Avatar
+                        IconButton(
+                            onClick = onAvatarClick,
+                            modifier = Modifier.testTag("user_avatar_btn")
+                        ) {
+                            if (currentUser != null && currentUser.photoUrl.isNotBlank()) {
+                                AsyncImage(
+                                    model = currentUser.photoUrl,
+                                    contentDescription = "Account Profile",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.AccountCircle,
+                                    contentDescription = "Sign In / Profile",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -229,6 +265,99 @@ fun HomeScreen(
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                                 color = Color.White
                             )
+                        }
+                    }
+                }
+            }
+
+            // Featured Creator Channels Section
+            if (channels.isNotEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.OndemandVideo,
+                                    contentDescription = null,
+                                    tint = YtRed,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Featured Creator Channels",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) {
+                            items(channels, key = { it.id }) { ch ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .width(96.dp)
+                                        .clickable { onChannelClick(ch) }
+                                        .testTag("home_channel_${ch.id}")
+                                ) {
+                                    Box(contentAlignment = Alignment.BottomEnd) {
+                                        AsyncImage(
+                                            model = ch.avatarUrl,
+                                            contentDescription = ch.name,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(64.dp)
+                                                .clip(CircleShape)
+                                                .border(2.dp, if (ch.isSubscribed) YtRed else MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                        )
+                                        if (ch.isVerified) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(16.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = "Verified",
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(10.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    Text(
+                                        text = ch.name,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = ch.handle,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
                         }
                     }
                 }

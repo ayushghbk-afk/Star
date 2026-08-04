@@ -77,6 +77,18 @@ class FirestoreSyncManager {
         }
     }
 
+    suspend fun syncChannel(channel: com.example.data.db.ChannelEntity) {
+        val db = firestore ?: return
+        try {
+            val firestoreChannel = FirestoreChannel.fromChannelEntity(channel)
+            val docRef = db.collection("channels").document(channel.id.toString())
+            docRef.set(firestoreChannel).await()
+            Log.d("FirestoreSyncManager", "Channel ${channel.id} synced to Firestore.")
+        } catch (e: Exception) {
+            Log.e("FirestoreSyncManager", "Error syncing channel ${channel.id} to Firestore: ${e.message}")
+        }
+    }
+
     suspend fun fetchRemoteTracks(): List<TrackEntity> {
         val db = firestore ?: return emptyList()
         return try {

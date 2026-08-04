@@ -21,5 +21,7 @@ data class TrackEntity(
     val likesCount: Int = 120,
     val playCount: Int = 1450,
     val uploaderName: String = "StreamSync Server",
+    val channelId: String? = null,
+    val channelName: String? = null,
     val addedTimestamp: Long = System.currentTimeMillis()
 )

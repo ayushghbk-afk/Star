@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.components.AuthDialog
 import com.example.ui.components.MiniPlayer
 import com.example.ui.screens.*
 import com.example.ui.theme.MyApplicationTheme
@@ -51,6 +52,14 @@ fun MainAppScreen(viewModel: MusicViewModel) {
     val communityPosts by viewModel.communityPosts.collectAsStateWithLifecycle()
     val userPreferences by viewModel.userPreferences.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val allChannels by viewModel.allChannels.collectAsStateWithLifecycle()
+    val subscribedChannels by viewModel.subscribedChannels.collectAsStateWithLifecycle()
+    val selectedChannel by viewModel.selectedChannel.collectAsStateWithLifecycle()
+    val showAuthDialog by viewModel.showAuthDialog.collectAsStateWithLifecycle()
+    val showChannelSheet by viewModel.showChannelSheet.collectAsStateWithLifecycle()
+    val showCreateChannelSheet by viewModel.showCreateChannelSheet.collectAsStateWithLifecycle()
 
     val currentTrack by viewModel.currentTrack.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
@@ -156,15 +165,19 @@ fun MainAppScreen(viewModel: MusicViewModel) {
             when (selectedScreen) {
                 0 -> HomeScreen(
                     tracks = allTracks,
+                    channels = allChannels,
                     currentTrackId = currentTrack?.id,
                     searchQuery = searchQuery,
                     playlists = playlists,
+                    currentUser = currentUser,
                     onSearchQueryChange = { viewModel.setSearchQuery(it) },
                     onTrackSelect = { viewModel.playTrackNow(it) },
                     onLikeToggle = { viewModel.toggleLikeTrack(it) },
                     onOfflineToggle = { viewModel.toggleOfflineDownload(it) },
                     onAddToPlaylist = { pId, tId -> viewModel.addTrackToPlaylist(pId, tId) },
-                    onOpenUpload = { viewModel.toggleUploadSheet(true) }
+                    onOpenUpload = { viewModel.toggleUploadSheet(true) },
+                    onChannelClick = { viewModel.openChannel(it) },
+                    onAvatarClick = { viewModel.setShowAuthDialog(true) }
                 )
 
                 1 -> CommunityScreen(
@@ -181,6 +194,7 @@ fun MainAppScreen(viewModel: MusicViewModel) {
                     userUploadedTracks = userUploadedTracks,
                     likedTracks = likedTracks,
                     playlists = playlists,
+                    subscribedChannels = subscribedChannels,
                     userPreferences = userPreferences,
                     currentTrackId = currentTrack?.id,
                     onTrackSelect = { viewModel.playTrackNow(it) },
@@ -190,10 +204,67 @@ fun MainAppScreen(viewModel: MusicViewModel) {
                     onCreatePlaylist = { name, desc -> viewModel.createPlaylist(name, desc) },
                     onDeletePlaylist = { pId -> viewModel.deletePlaylist(pId) },
                     onOpenUpload = { viewModel.toggleUploadSheet(true) },
-                    onOpenEqualizer = { viewModel.toggleEqualizer(true) }
+                    onOpenEqualizer = { viewModel.toggleEqualizer(true) },
+                    onChannelClick = { viewModel.openChannel(it) },
+                    onCreateChannelClick = { viewModel.setShowCreateChannelSheet(true) }
                 )
             }
         }
+    }
+
+    // Auth Dialog
+    if (showAuthDialog) {
+        AuthDialog(
+            currentUser = currentUser,
+            onDismiss = { viewModel.setShowAuthDialog(false) },
+            onSignIn = { email, pass, callback -> viewModel.signInWithEmail(email, pass, callback) },
+            onSignUp = { email, pass, name, callback -> viewModel.signUpWithEmail(email, pass, name, callback) },
+            onSignOut = { viewModel.signOut() },
+            onOpenChannel = {
+                viewModel.setShowAuthDialog(false)
+                val user = currentUser
+                val channel = allChannels.find { it.ownerUserId == user?.uid } ?: allChannels.firstOrNull()
+                if (channel != null) {
+                    viewModel.openChannel(channel)
+                } else {
+                    viewModel.setShowCreateChannelSheet(true)
+                }
+            },
+            onCreateChannel = {
+                viewModel.setShowAuthDialog(false)
+                viewModel.setShowCreateChannelSheet(true)
+            }
+        )
+    }
+
+    // Channel Detail Sheet
+    if (showChannelSheet && selectedChannel != null) {
+        val channel = selectedChannel!!
+        val channelTracks = allTracks.filter { it.artist.contains(channel.name, ignoreCase = true) || it.uploaderName.contains(channel.name, ignoreCase = true) || it.channelId == channel.channelId }
+        val channelPosts = communityPosts.filter { it.authorName.contains(channel.name, ignoreCase = true) }
+        ChannelDetailSheet(
+            channel = channel,
+            channelTracks = channelTracks.ifEmpty { allTracks.take(3) },
+            channelPosts = channelPosts,
+            currentPlayingTrack = currentTrack,
+            onDismiss = { viewModel.setShowChannelSheet(false) },
+            onToggleSubscribe = { viewModel.toggleSubscribe(it) },
+            onPlayTrack = { viewModel.playTrackNow(it) },
+            onUploadClick = {
+                viewModel.setShowChannelSheet(false)
+                viewModel.toggleUploadSheet(true)
+            }
+        )
+    }
+
+    // Create Channel Sheet
+    if (showCreateChannelSheet) {
+        CreateChannelSheet(
+            onDismiss = { viewModel.setShowCreateChannelSheet(false) },
+            onCreateChannel = { name, handle, bio ->
+                viewModel.createChannel(name, handle, bio)
+            }
+        )
     }
 
     // Full Screen Player Sheet

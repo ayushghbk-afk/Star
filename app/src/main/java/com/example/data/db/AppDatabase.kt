@@ -16,7 +16,8 @@ import kotlinx.coroutines.launch
         PlaylistTrackCrossRef::class,
         CommunityPostEntity::class,
         CommentEntity::class,
-        UserPreferencesEntity::class
+        UserPreferencesEntity::class,
+        ChannelEntity::class
     ],
     version = 1,
     exportSchema = false
@@ -25,6 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun trackDao(): TrackDao
     abstract fun playlistDao(): PlaylistDao
     abstract fun communityDao(): CommunityDao
+    abstract fun channelDao(): ChannelDao
 
     companion object {
         @Volatile
@@ -59,9 +61,54 @@ abstract class AppDatabase : RoomDatabase() {
             val trackDao = database.trackDao()
             val playlistDao = database.playlistDao()
             val communityDao = database.communityDao()
+            val channelDao = database.channelDao()
 
             // Default User Preferences
             communityDao.saveUserPreferences(UserPreferencesEntity())
+
+            // Sample Channels
+            val sampleChannels = listOf(
+                ChannelEntity(
+                    id = 1,
+                    channelId = "channel_neon_horizon",
+                    name = "Neon Horizon Official",
+                    handle = "@neonhorizon",
+                    bio = "Electronic Synthwave producer & visual artist. Live streams every Friday night!",
+                    avatarUrl = "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=600&auto=format&fit=crop",
+                    bannerUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1200&auto=format&fit=crop",
+                    subscriberCount = 142000,
+                    isSubscribed = true,
+                    isVerified = true,
+                    ownerUserId = "artist_101"
+                ),
+                ChannelEntity(
+                    id = 2,
+                    channelId = "channel_aura_luna",
+                    name = "Aura & Luna Studios",
+                    handle = "@auraluna_ambient",
+                    bio = "Chillout, Ambient Lo-Fi & Deep Focus Music for relaxation and study.",
+                    avatarUrl = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop",
+                    bannerUrl = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&auto=format&fit=crop",
+                    subscriberCount = 98500,
+                    isSubscribed = false,
+                    isVerified = true,
+                    ownerUserId = "artist_102"
+                ),
+                ChannelEntity(
+                    id = 3,
+                    channelId = "channel_my_creator_channel",
+                    name = "Creator Studio Channel",
+                    handle = "@creator_user",
+                    bio = "Official Channel of Creator User on StreamSync. Uploading new hits daily!",
+                    avatarUrl = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop",
+                    bannerUrl = "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1200&auto=format&fit=crop",
+                    subscriberCount = 1250,
+                    isSubscribed = false,
+                    isVerified = false,
+                    ownerUserId = "guest_user_101"
+                )
+            )
+            channelDao.insertChannels(sampleChannels)
 
             // Sample Tracks with synchronized lyrics (timestampInMs|lyricText)
             val sampleTracks = listOf(

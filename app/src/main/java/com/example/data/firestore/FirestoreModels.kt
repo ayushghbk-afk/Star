@@ -181,3 +181,56 @@ data class FirestoreComment(
             )
     }
 }
+
+/**
+ * Data model for storing Channel / Profile details in Firebase Firestore.
+ */
+data class FirestoreChannel(
+    val id: String = "",
+    val localId: Long = 0,
+    val channelId: String = "",
+    val name: String = "",
+    val handle: String = "",
+    val bio: String = "",
+    val avatarUrl: String = "",
+    val bannerUrl: String = "",
+    val subscriberCount: Int = 0,
+    val isSubscribed: Boolean = false,
+    val isVerified: Boolean = false,
+    val ownerUserId: String = "",
+    val createdAt: Long = System.currentTimeMillis()
+) {
+    fun toChannelEntity(): com.example.data.db.ChannelEntity = com.example.data.db.ChannelEntity(
+        id = if (localId != 0L) localId else 0L,
+        channelId = channelId,
+        name = name,
+        handle = handle,
+        bio = bio,
+        avatarUrl = avatarUrl,
+        bannerUrl = bannerUrl,
+        subscriberCount = subscriberCount,
+        isSubscribed = isSubscribed,
+        isVerified = isVerified,
+        ownerUserId = ownerUserId,
+        createdAt = createdAt
+    )
+
+    companion object {
+        fun fromChannelEntity(entity: com.example.data.db.ChannelEntity, docId: String = ""): FirestoreChannel =
+            FirestoreChannel(
+                id = docId.ifBlank { entity.id.toString() },
+                localId = entity.id,
+                channelId = entity.channelId,
+                name = entity.name,
+                handle = entity.handle,
+                bio = entity.bio,
+                avatarUrl = entity.avatarUrl,
+                bannerUrl = entity.bannerUrl,
+                subscriberCount = entity.subscriberCount,
+                isSubscribed = entity.isSubscribed,
+                isVerified = entity.isVerified,
+                ownerUserId = entity.ownerUserId,
+                createdAt = entity.createdAt
+            )
+    }
+}

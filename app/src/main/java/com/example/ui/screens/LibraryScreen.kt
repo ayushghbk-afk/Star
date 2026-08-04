@@ -1,13 +1,16 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -24,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.data.db.ChannelEntity
 import com.example.data.db.PlaylistEntity
 import com.example.data.db.TrackEntity
 import com.example.data.db.UserPreferencesEntity
@@ -38,6 +42,7 @@ fun LibraryScreen(
     userUploadedTracks: List<TrackEntity>,
     likedTracks: List<TrackEntity>,
     playlists: List<PlaylistEntity>,
+    subscribedChannels: List<ChannelEntity> = emptyList(),
     userPreferences: UserPreferencesEntity?,
     currentTrackId: Long?,
     onTrackSelect: (TrackEntity) -> Unit,
@@ -47,7 +52,9 @@ fun LibraryScreen(
     onCreatePlaylist: (name: String, desc: String) -> Unit,
     onDeletePlaylist: (Long) -> Unit,
     onOpenUpload: () -> Unit,
-    onOpenEqualizer: () -> Unit
+    onOpenEqualizer: () -> Unit,
+    onChannelClick: (ChannelEntity) -> Unit = {},
+    onCreateChannelClick: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(0) } // 0 = Downloads, 1 = Playlists, 2 = My Uploads, 3 = Liked
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
@@ -119,6 +126,87 @@ fun LibraryScreen(
                         onCheckedChange = { onTogglePremium() },
                         modifier = Modifier.testTag("premium_toggle_switch")
                     )
+                }
+            }
+
+            // Subscribed Channels Bar
+            if (subscribedChannels.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Subscribed Channels",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        TextButton(onClick = onCreateChannelClick) {
+                            Text("Create Channel", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        items(subscribedChannels, key = { it.id }) { channel ->
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                                    .clickable { onChannelClick(channel) }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AsyncImage(
+                                    model = channel.avatarUrl,
+                                    contentDescription = channel.name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = channel.name,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "YouTube & Facebook Style Creator Channels",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedButton(
+                        onClick = onCreateChannelClick,
+                        modifier = Modifier
+                            .height(34.dp)
+                            .testTag("library_create_channel_btn"),
+                        contentPadding = PaddingValues(horizontal = 10.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Create Channel", fontSize = 12.sp)
+                    }
                 }
             }
 

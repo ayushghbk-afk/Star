@@ -39,6 +39,26 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val userPreferences: StateFlow<UserPreferencesEntity?> = repository.userPreferences
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    val currentUser = repository.authManager.currentUser
+
+    val allChannels: StateFlow<List<ChannelEntity>> = repository.allChannels
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val subscribedChannels: StateFlow<List<ChannelEntity>> = repository.subscribedChannels
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _selectedChannel = MutableStateFlow<ChannelEntity?>(null)
+    val selectedChannel: StateFlow<ChannelEntity?> = _selectedChannel.asStateFlow()
+
+    private val _showAuthDialog = MutableStateFlow(false)
+    val showAuthDialog: StateFlow<Boolean> = _showAuthDialog.asStateFlow()
+
+    private val _showChannelSheet = MutableStateFlow(false)
+    val showChannelSheet: StateFlow<Boolean> = _showChannelSheet.asStateFlow()
+
+    private val _showCreateChannelSheet = MutableStateFlow(false)
+    val showCreateChannelSheet: StateFlow<Boolean> = _showCreateChannelSheet.asStateFlow()
+
     // Search query state
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -480,6 +500,88 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun addComment(postId: Long, author: String, text: String) {
         viewModelScope.launch {
             repository.addComment(postId, author, text)
+        }
+    }
+
+    // Auth & Channel Actions
+    fun setShowAuthDialog(show: Boolean) {
+        _showAuthDialog.value = show
+    }
+
+    fun setShowChannelSheet(show: Boolean) {
+        _showChannelSheet.value = show
+    }
+
+    fun setShowCreateChannelSheet(show: Boolean) {
+        _showCreateChannelSheet.value = show
+    }
+
+    fun openChannel(channel: ChannelEntity) {
+        _selectedChannel.value = channel
+        _showChannelSheet.value = true
+    }
+
+    fun toggleSubscribe(channel: ChannelEntity) {
+        viewModelScope.launch {
+            repository.toggleSubscribeChannel(channel.id, channel.isSubscribed)
+            // Update selectedChannel if open
+            if (_selectedChannel.value?.id == channel.id) {
+                val newSub = !channel.isSubscribed
+                val delta = if (newSub) 1 else -1
+                _selectedChannel.value = channel.copy(
+                    isSubscribed = newSub,
+                    subscriberCount = (channel.subscriberCount + delta).coerceAtLeast(0)
+                )
+            }
+        }
+    }
+
+    fun signInWithEmail(email: String, pass: String, onResult: (Boolean, String?) -> Unit) {
+        repository.authManager.signInWithEmail(email, pass) { success, msg ->
+            if (success) _showAuthDialog.value = false
+            onResult(success, msg)
+        }
+    }
+
+    fun signUpWithEmail(email: String, pass: String, name: String, onResult: (Boolean, String?) -> Unit) {
+        repository.authManager.signUpWithEmail(email, pass, name) { success, msg ->
+            if (success) {
+                _showAuthDialog.value = false
+                // Auto create channel for new account
+                createChannel(
+                    name = name.ifBlank { "Channel of $email" },
+                    handle = "@${name.lowercase().replace(" ", "")}",
+                    bio = "Official music channel on StreamSync."
+                )
+            }
+            onResult(success, msg)
+        }
+    }
+
+    fun signOut() {
+        repository.authManager.signOut()
+    }
+
+    fun createChannel(name: String, handle: String, bio: String) {
+        val user = currentUser.value
+        val channel = ChannelEntity(
+            channelId = "channel_${System.currentTimeMillis()}",
+            name = name,
+            handle = if (handle.startsWith("@")) handle else "@$handle",
+            bio = bio,
+            avatarUrl = user?.photoUrl ?: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop",
+            bannerUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1200&auto=format&fit=crop",
+            subscriberCount = 1,
+            isSubscribed = false,
+            isVerified = false,
+            ownerUserId = user?.uid ?: "guest_user_101"
+        )
+        viewModelScope.launch {
+            val newId = repository.saveChannel(channel)
+            val savedChannel = channel.copy(id = newId)
+            _selectedChannel.value = savedChannel
+            _showCreateChannelSheet.value = false
+            _showChannelSheet.value = true
         }
     }
 }
