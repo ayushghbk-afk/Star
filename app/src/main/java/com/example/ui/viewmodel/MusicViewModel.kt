@@ -1,6 +1,10 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.db.*
@@ -152,6 +156,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val virtualizer: StateFlow<Float> = _virtualizer.asStateFlow()
 
     private var playbackJob: Job? = null
+    private var mediaPlayer: MediaPlayer? = null
+    private var isMediaPlayerPrepared = false
 
     init {
         // Observe tracks to initialize current track if null
@@ -201,11 +207,83 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         _parsedLyrics.value = lyrics
         _activeLyricIndex.value = 0
 
-        if (autoPlay) {
-            startPlaybackTimer()
-        } else {
-            _isPlaying.value = false
-            stopPlaybackTimer()
+        // Reset existing player
+        releaseMediaPlayer()
+
+        try {
+            val mp = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .build()
+                )
+                val audioUrl = track.audioUrl.ifBlank {
+                    "https://actions.google.com/sounds/v1/ambiences/rain_heavy.ogg"
+                }
+                if (audioUrl.startsWith("content://") || audioUrl.startsWith("file://")) {
+                    setDataSource(getApplication(), Uri.parse(audioUrl))
+                } else {
+                    setDataSource(audioUrl)
+                }
+
+                setOnPreparedListener { player ->
+                    isMediaPlayerPrepared = true
+                    if (player.duration > 0) {
+                        _durationMs.value = player.duration.toLong()
+                    }
+                    if (autoPlay) {
+                        player.start()
+                        _isPlaying.value = true
+                        startPlaybackTimer()
+                    }
+                }
+
+                setOnCompletionListener {
+                    _isPlaying.value = false
+                    when (_repeatMode.value) {
+                        RepeatMode.ONE -> {
+                            try {
+                                seekTo(0)
+                                start()
+                                _isPlaying.value = true
+                                startPlaybackTimer()
+                            } catch (e: Exception) {
+                                playNextTrack()
+                            }
+                        }
+                        RepeatMode.ALL -> playNextTrack()
+                        RepeatMode.OFF -> {
+                            if (_currentQueueIndex.value < _queue.value.lastIndex) {
+                                playNextTrack()
+                            } else {
+                                _playbackPositionMs.value = _durationMs.value
+                                stopPlaybackTimer()
+                            }
+                        }
+                    }
+                }
+
+                setOnErrorListener { _, what, extra ->
+                    Log.w("MusicViewModel", "MediaPlayer error: what=$what extra=$extra")
+                    isMediaPlayerPrepared = false
+                    if (autoPlay) {
+                        _isPlaying.value = true
+                        startPlaybackTimer()
+                    }
+                    true
+                }
+
+                prepareAsync()
+            }
+            mediaPlayer = mp
+        } catch (e: Exception) {
+            Log.e("MusicViewModel", "Failed to initialize MediaPlayer for track ${track.title}", e)
+            isMediaPlayerPrepared = false
+            if (autoPlay) {
+                _isPlaying.value = true
+                startPlaybackTimer()
+            }
         }
     }
 
@@ -214,11 +292,29 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             setTrackQueue(allTracks.value, 0, autoPlay = true)
             return
         }
+        val mp = mediaPlayer
         if (_isPlaying.value) {
             _isPlaying.value = false
+            try {
+                if (mp != null && isMediaPlayerPrepared && mp.isPlaying) {
+                    mp.pause()
+                }
+            } catch (e: Exception) {
+                Log.e("MusicViewModel", "Error pausing player", e)
+            }
             stopPlaybackTimer()
         } else {
             _isPlaying.value = true
+            try {
+                if (mp != null && isMediaPlayerPrepared) {
+                    mp.start()
+                } else if (_currentTrack.value != null) {
+                    loadTrack(_currentTrack.value!!, autoPlay = true)
+                    return
+                }
+            } catch (e: Exception) {
+                Log.e("MusicViewModel", "Error starting player", e)
+            }
             startPlaybackTimer()
         }
     }
@@ -249,8 +345,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun seekToPosition(positionMs: Long) {
         val maxDur = _durationMs.value
-        _playbackPositionMs.value = positionMs.coerceIn(0L, maxDur)
-        updateLyricIndex(positionMs)
+        val target = positionMs.coerceIn(0L, maxDur)
+        _playbackPositionMs.value = target
+        updateLyricIndex(target)
+        try {
+            if (mediaPlayer != null && isMediaPlayerPrepared) {
+                mediaPlayer?.seekTo(target.toInt())
+            }
+        } catch (e: Exception) {
+            Log.e("MusicViewModel", "Error seeking player", e)
+        }
     }
 
     private fun startPlaybackTimer() {
@@ -258,10 +362,23 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         _isPlaying.value = true
         playbackJob = viewModelScope.launch {
             while (_isPlaying.value) {
-                delay(200)
-                val current = _playbackPositionMs.value + 200
+                delay(250)
+                var current = _playbackPositionMs.value
+                val mp = mediaPlayer
+                if (mp != null && isMediaPlayerPrepared) {
+                    try {
+                        if (mp.isPlaying) {
+                            current = mp.currentPosition.toLong()
+                        }
+                    } catch (e: Exception) {
+                        current += 250
+                    }
+                } else {
+                    current += 250
+                }
+
                 val total = _durationMs.value
-                if (current >= total) {
+                if (current >= total && (mp == null || !isMediaPlayerPrepared)) {
                     when (_repeatMode.value) {
                         RepeatMode.ONE -> {
                             _playbackPositionMs.value = 0L
@@ -289,6 +406,29 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private fun stopPlaybackTimer() {
         playbackJob?.cancel()
         playbackJob = null
+    }
+
+    private fun releaseMediaPlayer() {
+        try {
+            mediaPlayer?.apply {
+                if (isPlaying) {
+                    stop()
+                }
+                reset()
+                release()
+            }
+        } catch (e: Exception) {
+            Log.e("MusicViewModel", "Error releasing player", e)
+        } finally {
+            mediaPlayer = null
+            isMediaPlayerPrepared = false
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopPlaybackTimer()
+        releaseMediaPlayer()
     }
 
     private fun updateLyricIndex(currentPositionMs: Long) {
