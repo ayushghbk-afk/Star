@@ -1,5 +1,3 @@
-import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
-
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -26,16 +24,22 @@ android {
   signingConfigs {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      storeFile = file(keystorePath)
-      storePassword = System.getenv("STORE_PASSWORD")
-      keyAlias = "upload"
-      keyPassword = System.getenv("KEY_PASSWORD")
+      val ksFile = file(keystorePath)
+      if (ksFile.exists()) {
+        storeFile = ksFile
+        storePassword = System.getenv("STORE_PASSWORD") ?: "android"
+        keyAlias = "upload"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
+      }
     }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
+    val debugKeystoreFile = file("${rootDir}/debug.keystore")
+    if (debugKeystoreFile.exists()) {
+      create("debugConfig") {
+        storeFile = debugKeystoreFile
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
+      }
     }
   }
 
@@ -44,9 +48,19 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      signingConfig = signingConfigs.getByName("release")
+      val releaseConfig = signingConfigs.findByName("release")
+      if (releaseConfig?.storeFile?.exists() == true) {
+        signingConfig = releaseConfig
+      } else {
+        signingConfig = signingConfigs.getByName("debug")
+      }
     }
-    debug { signingConfig = signingConfigs.getByName("debugConfig") }
+    debug {
+      val customDebugConfig = signingConfigs.findByName("debugConfig")
+      if (customDebugConfig != null) {
+        signingConfig = customDebugConfig
+      }
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -66,7 +80,9 @@ secrets {
   defaultPropertiesFileName = ".env.example"
 }
 
-googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.WARN }
+googleServices {
+  missingGoogleServicesStrategy = com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.WARN
+}
 
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
