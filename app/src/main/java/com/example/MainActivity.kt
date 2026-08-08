@@ -30,6 +30,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            com.google.firebase.FirebaseApp.initializeApp(this)
+        } catch (e: Throwable) {
+            android.util.Log.w("MainActivity", "FirebaseApp init caught: ${e.message}")
+        }
         enableEdgeToEdge()
 
         setContent {

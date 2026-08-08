@@ -3,8 +3,11 @@ package com.example.data.repository
 import com.example.data.auth.AuthManager
 import com.example.data.db.*
 import com.example.data.firestore.FirestoreSyncManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 
 class MusicRepository(private val database: AppDatabase) {
 
