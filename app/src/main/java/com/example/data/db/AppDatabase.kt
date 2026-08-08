@@ -51,17 +51,27 @@ abstract class AppDatabase : RoomDatabase() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 super.onCreate(db)
                 CoroutineScope(Dispatchers.IO).launch {
-                    INSTANCE?.let { populateInitialData(it) }
+                    try {
+                        INSTANCE?.let { populateInitialData(it) }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             }
 
             override fun onOpen(db: SupportSQLiteDatabase) {
                 super.onOpen(db)
                 CoroutineScope(Dispatchers.IO).launch {
-                    INSTANCE?.let { database ->
-                        if (database.channelDao().getChannelById(1) == null) {
-                            populateInitialData(database)
+                    try {
+                        val cursor = db.query("SELECT COUNT(*) FROM channels", emptyArray<Any>())
+                        val isEmpty = cursor.use { c ->
+                            if (c.moveToFirst()) c.getInt(0) == 0 else true
                         }
+                        if (isEmpty) {
+                            INSTANCE?.let { populateInitialData(it) }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
                 }
             }
