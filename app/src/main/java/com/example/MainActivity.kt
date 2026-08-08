@@ -223,7 +223,9 @@ fun MainAppScreen(viewModel: MusicViewModel) {
             currentUser = currentUser,
             onDismiss = { viewModel.setShowAuthDialog(false) },
             onSignIn = { email, pass, callback -> viewModel.signInWithEmail(email, pass, callback) },
+            onSignInWithGoogle = { emailHint, callback -> viewModel.signInWithGoogle(emailHint, callback) },
             onSignUp = { email, pass, name, callback -> viewModel.signUpWithEmail(email, pass, name, callback) },
+            onResetPassword = { email, callback -> viewModel.resetPassword(email, callback) },
             onSignOut = { viewModel.signOut() },
             onOpenChannel = {
                 viewModel.setShowAuthDialog(false)
@@ -330,8 +332,20 @@ fun MainAppScreen(viewModel: MusicViewModel) {
             isUploading = isUploading,
             uploadProgress = uploadProgress,
             uploadStatusMessage = uploadStatusMessage,
-            onStartUpload = { title, artist, album, genre, lyrics, fileType, uploader ->
-                viewModel.startUploadProcess(title, artist, album, genre, lyrics, fileType, uploader)
+            currentUser = currentUser,
+            onStartUpload = { title, artist, album, genre, lyrics, fileType, uploader, audioUri, coverUrl, durationSec ->
+                viewModel.startUploadProcess(
+                    title = title,
+                    artist = artist,
+                    album = album,
+                    genre = genre,
+                    lyricsText = lyrics,
+                    fileType = fileType,
+                    uploaderName = uploader,
+                    audioUri = audioUri,
+                    coverUrl = coverUrl,
+                    durationSec = durationSec
+                )
             },
             onDismiss = { viewModel.toggleUploadSheet(false) }
         )

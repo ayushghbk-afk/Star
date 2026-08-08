@@ -82,21 +82,28 @@ class MusicRepository(private val database: AppDatabase) {
         lyricsText: String,
         isMp3OrVideo: String,
         uploaderName: String,
+        audioUri: String? = null,
+        coverUrl: String? = null,
+        durationSec: Int = 210,
         onProgress: (Int, String) -> Unit
     ): Long {
-        // Step 1: Uploading RAW file to StreamSync Server
-        onProgress(15, "Uploading $isMp3OrVideo file to StreamSync Cloud Server...")
+        // Step 1: File analysis & validation
+        onProgress(10, "Analyzing audio file parameters & metadata...")
+        delay(600)
+
+        // Step 2: Uploading RAW file to StreamSync Server
+        onProgress(35, "Uploading $isMp3OrVideo file to StreamSync Cloud Server...")
         delay(800)
 
-        // Step 2: Server-side High Quality Audio Processing
-        onProgress(45, "Processing high-bitrate stream & normalizing audio...")
+        // Step 3: Server-side High Quality Audio Encoding
+        onProgress(60, "Encoding high-bitrate 320kbps stream & normalizing audio...")
         delay(900)
 
-        // Step 3: Generating Real-time Lyric Timestamps
-        onProgress(75, "Generating synchronized lyrics timing engine...")
-        delay(800)
+        // Step 4: Generating Real-time Lyric Timestamps
+        onProgress(80, "Generating synchronized lyrics timing engine...")
+        delay(700)
 
-        // Step 4: Making Publicly Discoverable
+        // Step 5: Making Publicly Discoverable
         onProgress(95, "Publishing to public discovery network...")
         delay(500)
 
@@ -107,7 +114,7 @@ class MusicRepository(private val database: AppDatabase) {
             var currentMs = 0
             sb.append("0|[Intro - High Quality Stream]\n")
             lines.forEach { line ->
-                currentMs += 6000
+                currentMs += 5000
                 sb.append("$currentMs|$line\n")
             }
             sb.toString().trim()
@@ -120,13 +127,16 @@ class MusicRepository(private val database: AppDatabase) {
             """.trimIndent()
         }
 
+        val finalAudioUrl = if (!audioUri.isNullOrBlank()) audioUri else "https://actions.google.com/sounds/v1/ambiences/rain_heavy.ogg"
+        val finalCoverUrl = if (!coverUrl.isNullOrBlank()) coverUrl else "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop"
+
         val newTrack = TrackEntity(
             title = title.ifBlank { "Untitled Upload" },
             artist = artist.ifBlank { uploaderName },
-            album = album.ifBlank { "Community Uploads" },
-            durationSeconds = 195,
-            audioUrl = "https://actions.google.com/sounds/v1/ambiences/rain_heavy.ogg",
-            coverUrl = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop",
+            album = album.ifBlank { "Community Single" },
+            durationSeconds = if (durationSec > 0) durationSec else 210,
+            audioUrl = finalAudioUrl,
+            coverUrl = finalCoverUrl,
             genre = genre.ifBlank { "Pop / Dance" },
             isLiked = false,
             isOfflineDownloaded = true, // Downloaded automatically upon upload

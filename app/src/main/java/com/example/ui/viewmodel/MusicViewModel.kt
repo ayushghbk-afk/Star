@@ -365,7 +365,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         genre: String,
         lyricsText: String,
         fileType: String,
-        uploaderName: String
+        uploaderName: String,
+        audioUri: String? = null,
+        coverUrl: String? = null,
+        durationSec: Int = 210
     ) {
         viewModelScope.launch {
             _isUploading.value = true
@@ -380,6 +383,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 lyricsText = lyricsText,
                 isMp3OrVideo = fileType,
                 uploaderName = uploaderName,
+                audioUri = audioUri,
+                coverUrl = coverUrl,
+                durationSec = durationSec,
                 onProgress = { progress, msg ->
                     _uploadProgress.value = progress
                     _uploadStatusMessage.value = msg
@@ -541,6 +547,27 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             if (success) _showAuthDialog.value = false
             onResult(success, msg)
         }
+    }
+
+    fun signInWithGoogle(emailHint: String? = null, onResult: (Boolean, String?) -> Unit) {
+        repository.authManager.signInWithGoogle(idToken = null, emailHint = emailHint) { success, msg ->
+            if (success) {
+                _showAuthDialog.value = false
+                val currentUser = repository.authManager.currentUser.value
+                currentUser?.let { user ->
+                    createChannel(
+                        name = user.displayName,
+                        handle = user.channelHandle,
+                        bio = "Official Google verified channel on StreamSync."
+                    )
+                }
+            }
+            onResult(success, msg)
+        }
+    }
+
+    fun resetPassword(email: String, onResult: (Boolean, String) -> Unit) {
+        repository.authManager.resetPassword(email, onResult)
     }
 
     fun signUpWithEmail(email: String, pass: String, name: String, onResult: (Boolean, String?) -> Unit) {
