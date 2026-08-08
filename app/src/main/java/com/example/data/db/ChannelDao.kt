@@ -5,6 +5,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChannelDao {
+    @Query("SELECT COUNT(*) FROM channels")
+    suspend fun getAllChannelsCount(): Int
+
     @Query("SELECT * FROM channels ORDER BY subscriberCount DESC")
     fun getAllChannels(): Flow<List<ChannelEntity>>
 

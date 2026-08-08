@@ -8,6 +8,16 @@ import kotlinx.coroutines.flow.Flow
 
 class MusicRepository(private val database: AppDatabase) {
 
+    init {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                AppDatabase.ensureInitialData(database)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     private val firestoreSync = FirestoreSyncManager()
     val authManager = AuthManager()
 

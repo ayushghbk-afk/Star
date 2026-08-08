@@ -13,7 +13,7 @@ class FirestoreSyncManager {
     private val firestore: FirebaseFirestore? by lazy {
         try {
             FirebaseFirestore.getInstance()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.w("FirestoreSyncManager", "Firebase Firestore is not initialized: ${e.message}")
             null
         }

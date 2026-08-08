@@ -21,7 +21,7 @@ class AuthManager {
     private val firebaseAuth: FirebaseAuth? by lazy {
         try {
             FirebaseAuth.getInstance()
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.w("AuthManager", "FirebaseAuth not available: ${e.message}")
             null
         }

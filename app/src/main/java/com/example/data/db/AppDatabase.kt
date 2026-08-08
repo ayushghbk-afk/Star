@@ -40,40 +40,19 @@ abstract class AppDatabase : RoomDatabase() {
                     "streamsync_music_v3.db"
                 )
                 .fallbackToDestructiveMigration()
-                .addCallback(DatabaseCallback())
                 .build()
                 INSTANCE = instance
                 instance
             }
         }
 
-        private class DatabaseCallback : RoomDatabase.Callback() {
-            override fun onCreate(db: SupportSQLiteDatabase) {
-                super.onCreate(db)
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        INSTANCE?.let { populateInitialData(it) }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
+        suspend fun ensureInitialData(database: AppDatabase) {
+            try {
+                if (database.channelDao().getAllChannelsCount() == 0) {
+                    populateInitialData(database)
                 }
-            }
-
-            override fun onOpen(db: SupportSQLiteDatabase) {
-                super.onOpen(db)
-                CoroutineScope(Dispatchers.IO).launch {
-                    try {
-                        val cursor = db.query("SELECT COUNT(*) FROM channels", emptyArray<Any>())
-                        val isEmpty = cursor.use { c ->
-                            if (c.moveToFirst()) c.getInt(0) == 0 else true
-                        }
-                        if (isEmpty) {
-                            INSTANCE?.let { populateInitialData(it) }
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 
